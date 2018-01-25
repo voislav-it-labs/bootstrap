@@ -124,7 +124,9 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
     element.attr({
       'aria-autocomplete': 'list',
       'aria-expanded': false,
-      'aria-owns': popupId
+      'aria-owns': popupId,
+      'aria-controls':  popupId + '-hint',
+      'aria-describedby': popupId + '-keyboard-desc'
     });
 
     var inputsContainer, hintInputElem;
@@ -161,6 +163,11 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
     }
 
     //pop-up element used to display matches
+    var popUpElContainer = angular.element('<div>' +
+        '<uib-typeahead-results-hint matches="matches" popupid="' + popupId + '"></uib-typeahead-results-hint>' +
+        '</div>'
+    );
+
     var popUpEl = angular.element('<div uib-typeahead-popup></div>');
     popUpEl.attr({
       id: popupId,
@@ -181,6 +188,8 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
     if (angular.isDefined(attrs.typeaheadPopupTemplateUrl)) {
       popUpEl.attr('popup-template-url', attrs.typeaheadPopupTemplateUrl);
     }
+
+    popUpElContainer.append(popUpEl);
 
     var resetHint = function() {
       if (showHint) {
@@ -406,13 +415,13 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
         case 38: // up arrow
           scope.activeIdx = (scope.activeIdx > 0 ? scope.activeIdx : scope.matches.length) - 1;
           scope.$digest();
-          target = popUpEl[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
+          target = popUpElContainer[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
           target.parentNode.scrollTop = target.offsetTop;
           break;
         case 40: // down arrow
           scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
           scope.$digest();
-          target = popUpEl[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
+          target = popUpElContainer[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
           target.parentNode.scrollTop = target.offsetTop;
           break;
         default:
@@ -490,14 +499,14 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
         $document.find('body').off('scroll', fireRecalculating);
       }
       // Prevent jQuery cache memory leak
-      popUpEl.remove();
+      popUpElContainer.remove();
 
       if (showHint) {
           inputsContainer.remove();
       }
     });
 
-    var $popup = $compile(popUpEl)(scope);
+    var $popup = $compile(popUpElContainer)(scope);
 
     if (appendToBody) {
       $document.find('body').append($popup);
@@ -662,6 +671,39 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
           element.replaceWith(tplEl);
           $compile(tplEl)(scope);
         });
+      }
+    };
+  }])
+
+  .directive('uibTypeaheadResultsHint', [function() {
+    return {
+      restrict: 'E',
+      scope: {
+        matches: '=',
+        popupid: '@'
+      },
+      template: '<div class="sr-only">' +
+      '<div ng-attr-id="{{ popupid + \'-keyboard-desc\' }}">Use Up or Down key to access and browse suggestions after input. Confirm your choice with enter key, or esc key to close suggestions box.</div>' +
+      '<div ng-attr-id="{{ popupid + \'-hint\' }}" aria-live="polite" aria-relevant="text"></div>' +
+      '</div>',
+      link: function (scope, element) {
+          scope.$watch(function () {
+              if (!scope.matches) {
+                  return 0;
+              }
+
+              return scope.matches.length;
+          }, function () {
+              console.log('matches changed', scope.matches, element);
+              var matchesCount = 0;
+              if (scope.matches) {
+                  matchesCount = scope.matches.length;
+              }
+
+              element.find('#' + scope.popupid + '-hint')
+                .text('')
+                .text('There are ' + matchesCount + ' suggestions.');
+          });
       }
     };
   }])
